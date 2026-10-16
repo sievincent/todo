@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>My To-Do List</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f3f6f1;--card:#fff;--ink:#1f2a24;--muted:#6b7a70;--line:#dfe6dc;--accent:#2f7d57;--accent-ink:#fff;--hi:#c8453b;--md:#c98a1b;--lo:#3b7ea6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121815;--card:#1b241f;--ink:#e8efe9;--muted:#93a399;--line:#2b3830;--accent:#5fbf8f;--accent-ink:#0d1a13}}
+:root[data-theme="dark"]{--bg:#121815;--card:#1b241f;--ink:#e8efe9;--muted:#93a399;--line:#2b3830;--accent:#5fbf8f;--accent-ink:#0d1a13}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Georgia,"Iowan Old Style",serif}
+main{max-width:560px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:28px;margin:8px 0 2px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:15px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-bottom:18px}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+form{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:8px}
+input,select,button{font:inherit;color:inherit}
+input[type=text]{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);min-width:0}
+input[type=text]:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.add{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:0 18px;font-weight:600}
+.opts{display:flex;gap:8px;grid-column:1/-1}
+select,.opts input[type=date]{flex:1;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);min-width:0}
+.tabs{display:flex;gap:6px;margin:16px 0 10px}
+.tabs button{flex:1;padding:8px;border:1px solid var(--line);background:transparent;border-radius:10px;color:var(--muted)}
+.tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+li{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--lo);border-radius:12px;padding:12px}
+li.high{border-left-color:var(--hi)}li.medium{border-left-color:var(--md)}li.low{border-left-color:var(--lo)}
+li input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent);flex:none}
+.t{flex:1;min-width:0;word-break:break-word}
+.t small{display:block;color:var(--muted);font-size:13px}
+li.done .t span{text-decoration:line-through;color:var(--muted)}
+li.late .t small{color:var(--hi)}
+.x{background:none;border:0;color:var(--muted);font-size:20px;padding:4px 8px;border-radius:8px}
+.x:hover{color:var(--hi)}
+.empty{text-align:center;color:var(--muted);padding:28px 0}
+.foot{display:flex;justify-content:space-between;margin-top:14px;color:var(--muted);font-size:14px}
+.foot button{background:none;border:0;color:var(--muted);text-decoration:underline}
+</style>
+</head>
+<body>
+<main>
+  <h1>To-do list</h1>
+  <p class="sub" id="sub"></p>
+  <div class="bar"><i id="bar"></i></div>
+  <form id="f">
+    <input type="text" id="txt" placeholder="What do you need to do?" maxlength="120" autocomplete="off" aria-label="New task">
+    <button class="add" type="submit">Add</button>
+    <div class="opts">
+      <select id="pri" aria-label="Priority"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select>
+      <input type="date" id="due" aria-label="Due date">
+    </div>
+  </form>
+  <div class="tabs" id="tabs">
+    <button data-f="all" class="on">All</button><button data-f="open">To do</button><button data-f="done">Done</button>
+  </div>
+  <ul id="list"></ul>
+  <div class="foot"><span id="count"></span><button id="clear">Clear done</button></div>
+</main>
+<script>
+var tasks=[],filter="all",KEY="todo-v1";
+try{tasks=JSON.parse(localStorage.getItem(KEY))||[]}catch(e){tasks=[]}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(tasks))}catch(e){}}
+var $=function(i){return document.getElementById(i)};
+var rank={high:0,medium:1,low:2};
+function fmt(d){var p=d.split("-");return new Date(p[0],p[1]-1,p[2]).toLocaleDateString(undefined,{day:"numeric",month:"short"})}
+function render(){
+  var today=new Date().toISOString().slice(0,10);
+  var shown=tasks.filter(function(t){return filter=="all"||(filter=="done")==t.done});
+  shown.sort(function(a,b){return a.done-b.done||rank[a.p]-rank[b.p]||(a.d||"9").localeCompare(b.d||"9")});
+  var ul=$("list");ul.innerHTML="";
+  if(!shown.length){ul.innerHTML='<div class="empty">Nothing here yet. Add your first task above.</div>'}
+  shown.forEach(function(t){
+    var li=document.createElement("li");
+    li.className=t.p+(t.done?" done":"")+(t.d&&t.d<today&&!t.done?" late":"");
+    var c=document.createElement("input");c.type="checkbox";c.checked=t.done;c.setAttribute("aria-label","Mark done");
+    c.onchange=function(){t.done=c.checked;save();render()};
+    var box=document.createElement("div");box.className="t";
+    var s=document.createElement("span");s.textContent=t.text;box.appendChild(s);
+    if(t.d){var m=document.createElement("small");m.textContent=(t.d<today&&!t.done?"Overdue: ":"Due ")+fmt(t.d);box.appendChild(m)}
+    var x=document.createElement("button");x.className="x";x.textContent="×";x.setAttribute("aria-label","Delete task");
+    x.onclick=function(){tasks=tasks.filter(function(k){return k!==t});save();render()};
+    li.append(c,box,x);ul.appendChild(li);
+  });
+  var done=tasks.filter(function(t){return t.done}).length,n=tasks.length;
+  $("bar").style.width=(n?done/n*100:0)+"%";
+  $("sub").textContent=n?done+" of "+n+" done":"Plan your day";
+  $("count").textContent=(n-done)+" left";
+}
+$("f").onsubmit=function(e){
+  e.preventDefault();var v=$("txt").value.trim();if(!v)return;
+  tasks.push({text:v,p:$("pri").value,d:$("due").value,done:false});
+  $("txt").value="";$("due").value="";save();render();$("txt").focus();
+};
+$("tabs").onclick=function(e){
+  var f=e.target.dataset&&e.target.dataset.f;if(!f)return;filter=f;
+  [].forEach.call($("tabs").children,function(b){b.classList.toggle("on",b.dataset.f==f)});render();
+};
+$("clear").onclick=function(){tasks=tasks.filter(function(t){return!t.done});save();render()};
+render();
+</script>
+</body>
+</html>
